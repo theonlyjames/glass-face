@@ -1,19 +1,64 @@
-"""`main` is the top level module for your Flask application."""
+import json
+import webapp2
+import time
 
-# Import the Flask Framework
-from flask import Flask
-app = Flask(__name__)
-# Note: We don't need to call run() since our application is embedded within
-# the App Engine WSGI application server.
+import model
 
 
-@app.route('/')
-def hello():
-    """Return a friendly HTTP greeting."""
-    return 'Hello World!'
+def AsDict(guest):
+  return {'id': guest.key.id(), 'first': guest.first, 'last': guest.last}
 
 
-@app.errorhandler(404)
-def page_not_found(e):
-    """Return a custom 404 error."""
-    return 'Sorry, Nothing at this URL.', 404
+class RestHandler(webapp2.RequestHandler):
+
+  def dispatch(self):
+    #time.sleep(1)
+    super(RestHandler, self).dispatch()
+
+
+  def SendJson(self, r):
+    self.response.headers['content-type'] = 'text/plain'
+    self.response.write(json.dumps(r))
+    
+
+class QueryHandler(RestHandler):
+
+  def get(self):
+    guests = model.AllGuests()
+    r = [ AsDict(guest) for guest in guests ]
+    self.SendJson(r)
+
+
+class UpdateHandler(RestHandler):
+
+  def post(self):
+    r = json.loads(self.request.body)
+    guest = model.UpdateGuest(r['id'], r['first'], r['last'])
+    r = AsDict(guest)
+    self.SendJson(r)
+
+
+class InsertHandler(RestHandler):
+
+  def post(self):
+    r = json.loads(self.request.body)
+    guest = model.InsertGuest(r['first'], r['last'])
+    r = AsDict(guest)
+    self.SendJson(r)
+
+
+class DeleteHandler(RestHandler):
+
+  def post(self):
+    r = json.loads(self.request.body)
+    model.DeleteGuest(r['id'])
+
+
+APP = webapp2.WSGIApplication([
+    ('/rest/query', QueryHandler),
+    ('/rest/insert', InsertHandler),
+    ('/rest/delete', DeleteHandler),
+    ('/rest/update', UpdateHandler),
+], debug=True)
+
+
